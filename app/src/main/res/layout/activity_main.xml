@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/budgetTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Budget: 0.0"
+        android:textSize="18sp" />
+
+    <TextView
+        android:id="@+id/remainingTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Remaining: 0.0"
+        android:textSize="18sp" />
+
+    <Button
+        android:id="@+id/addBudgetButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Set Budget" />
+
+    <Button
+        android:id="@+id/addExpenseButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Add Expense" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/expenseRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="8dp" />
+</LinearLayout>
