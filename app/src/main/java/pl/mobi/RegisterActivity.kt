@@ -20,9 +20,16 @@ class RegisterActivity : AppCompatActivity() {
         val registerButton: Button = findViewById(R.id.registerButton)
         val emailInput: EditText = findViewById(R.id.emailInput)
         val passwordInput: EditText = findViewById(R.id.passwordInput)
+        val confirmPasswordInput: EditText = findViewById(R.id.confirmPasswordInput)
         registerButton.setOnClickListener {
             val email = emailInput.text.toString()
             val password = passwordInput.text.toString()
+            val confirmPassword = confirmPasswordInput.text.toString()
+
+            if (password != confirmPassword) {
+                Toast.makeText(this, "Hasła nie są zgodne", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
 
             if (email.isNotEmpty() && password.isNotEmpty()) {
                 auth.createUserWithEmailAndPassword(email, password)
