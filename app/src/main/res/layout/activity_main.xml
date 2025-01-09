@@ -19,21 +19,38 @@
         android:text="Remaining: 0.0"
         android:textSize="18sp" />
 
-    <Button
-        android:id="@+id/addBudgetButton"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Set Budget" />
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
+
+        <Button
+            android:id="@+id/addBudgetButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Set Budget" />
+
+        <Button
+            android:id="@+id/addExpenseButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Add Expense" />
+    </LinearLayout>
 
     <Button
-        android:id="@+id/addExpenseButton"
+        android:id="@+id/settingsButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Add Expense" />
+        android:text="Settings"
+        android:layout_marginBottom="8dp" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/expenseRecyclerView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:layout_marginTop="8dp" />
 </LinearLayout>
