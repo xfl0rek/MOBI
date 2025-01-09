@@ -103,6 +103,14 @@ class MainActivity : AppCompatActivity() {
         val totalExpenses = expenses.sumOf { it.third }
         val remaining = budget - totalExpenses
         remainingTextView.text = "Remaining: $remaining ${selectedCurrency.symbol}"
+
+        if (remaining < 0) {
+            AlertDialog.Builder(this)
+                .setTitle("Budget Exceeded")
+                .setMessage("You have exceeded your budget by ${-remaining} ${selectedCurrency.symbol}.")
+                .setPositiveButton("OK", null)
+                .show()
+        }
     }
 
     private fun loadCategories() {
