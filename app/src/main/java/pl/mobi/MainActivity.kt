@@ -26,22 +26,32 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Odczyt ustawień
+        val preferences = getSharedPreferences("Settings", MODE_PRIVATE)
+        budget = preferences.getFloat("Budget", 0.0f).toDouble()
+        val currencyCode = preferences.getString("CurrencyCode", "USD") ?: "USD"
+        selectedCurrency = Currency.getInstance(currencyCode)
+
+        // Powiązanie widoków
         val budgetTextView: TextView = findViewById(R.id.budgetTextView)
         val remainingTextView: TextView = findViewById(R.id.remainingTextView)
         val addBudgetButton: Button = findViewById(R.id.addBudgetButton)
         val addExpenseButton: Button = findViewById(R.id.addExpenseButton)
         val settingsButton: Button = findViewById(R.id.settingsButton)
         val expenseRecyclerView: RecyclerView = findViewById(R.id.expenseRecyclerView)
-        val preferences = getSharedPreferences("Settings", MODE_PRIVATE)
-        val currencyCode = preferences.getString("CurrencyCode", "USD") ?: "USD"
-        selectedCurrency = Currency.getInstance(currencyCode)
 
         loadCategories()
 
+        // Ustawienie RecyclerView
         expenseAdapter = ExpenseAdapter(expenses, selectedCurrency)
         expenseRecyclerView.layoutManager = LinearLayoutManager(this)
         expenseRecyclerView.adapter = expenseAdapter
 
+        // Wyświetlenie budżetu
+        updateBudgetTextView(budgetTextView)
+        updateRemaining(remainingTextView)
+
+        // Obsługa przycisku dodawania budżetu
         addBudgetButton.setOnClickListener {
             val input = EditText(this).apply {
                 inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
@@ -51,14 +61,21 @@ class MainActivity : AppCompatActivity() {
                 .setTitle("Set Budget")
                 .setView(input)
                 .setPositiveButton("OK") { _, _ ->
-                    budget = input.text.toString().toDoubleOrNull() ?: 0.0
-                    budgetTextView.text = "Budget: $budget ${selectedCurrency.symbol}"
-                    updateRemaining(remainingTextView)
+                    val newBudget = input.text.toString().toDoubleOrNull()
+                    if (newBudget != null) {
+                        budget = newBudget
+                        preferences.edit().putFloat("Budget", budget.toFloat()).apply()
+                        updateBudgetTextView(budgetTextView)
+                        updateRemaining(remainingTextView)
+                    } else {
+                        Toast.makeText(this, "Invalid budget value", Toast.LENGTH_SHORT).show()
+                    }
                 }
                 .setNegativeButton("Cancel", null)
                 .show()
         }
 
+        // Obsługa przycisku dodawania wydatku
         addExpenseButton.setOnClickListener {
             val inputName = EditText(this).apply {
                 hint = "Expense name"
@@ -87,16 +104,23 @@ class MainActivity : AppCompatActivity() {
                         expenses.add(Triple(name, category, amount))
                         expenseAdapter.notifyDataSetChanged()
                         updateRemaining(remainingTextView)
+                    } else {
+                        Toast.makeText(this, "Invalid expense data", Toast.LENGTH_SHORT).show()
                     }
                 }
                 .setNegativeButton("Cancel", null)
                 .show()
         }
 
+        // Obsługa przycisku ustawień
         settingsButton.setOnClickListener {
             val intent = Intent(this, SettingsActivity::class.java)
             startActivity(intent)
         }
+    }
+
+    private fun updateBudgetTextView(budgetTextView: TextView) {
+        budgetTextView.text = "Budget: $budget ${selectedCurrency.symbol}"
     }
 
     private fun updateRemaining(remainingTextView: TextView) {
