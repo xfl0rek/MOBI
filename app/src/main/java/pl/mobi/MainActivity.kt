@@ -13,6 +13,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.util.*
+import com.github.mikephil.charting.charts.PieChart
+import com.github.mikephil.charting.data.PieData
+import com.github.mikephil.charting.data.PieDataSet
+import com.github.mikephil.charting.data.PieEntry
+import com.github.mikephil.charting.utils.ColorTemplate
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -25,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        val expensePieChart: PieChart = findViewById(R.id.expensePieChart)
 
         // Odczyt ustawień
         val preferences = getSharedPreferences("Settings", MODE_PRIVATE)
@@ -50,6 +57,8 @@ class MainActivity : AppCompatActivity() {
         // Wyświetlenie budżetu
         updateBudgetTextView(budgetTextView)
         updateRemaining(remainingTextView)
+
+        updatePieChart(expensePieChart)
 
         // Obsługa przycisku dodawania budżetu
         addBudgetButton.setOnClickListener {
@@ -104,6 +113,7 @@ class MainActivity : AppCompatActivity() {
                         expenses.add(Triple(name, category, amount))
                         expenseAdapter.notifyDataSetChanged()
                         updateRemaining(remainingTextView)
+                        updatePieChart(expensePieChart)
                     } else {
                         Toast.makeText(this, "Invalid expense data", Toast.LENGTH_SHORT).show()
                     }
@@ -118,6 +128,26 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         }
     }
+
+    private fun updatePieChart(pieChart: PieChart) {
+        val categorySums = expenses.groupBy { it.second }.mapValues { entry ->
+            entry.value.sumOf { it.third }
+        }
+
+        val entries = categorySums.map { (category, total) ->
+            PieEntry(total.toFloat(), category)
+        }
+
+        val dataSet = PieDataSet(entries, "Expenses by Category").apply {
+            colors = ColorTemplate.MATERIAL_COLORS.toList()
+            valueTextSize = 14f
+        }
+
+        pieChart.data = PieData(dataSet)
+        pieChart.description.isEnabled = false
+        pieChart.invalidate() // Odśwież wykres
+    }
+
 
     private fun updateBudgetTextView(budgetTextView: TextView) {
         budgetTextView.text = "Budget: $budget ${selectedCurrency.symbol}"
