@@ -27,14 +27,16 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import pl.mobi.BudgetStore.budget
+import pl.mobi.BudgetStore.budgetInPLN
+import pl.mobi.BudgetStore.currency
+import pl.mobi.ExchangeRateStore.exchangeRate
+import pl.mobi.ExchangeRateStore.selectedCurrency
 
 
 class MainActivity : AppCompatActivity() {
-    private var budget: Double = 0.0
-    private var budgetInPLN: Double = 0.0
     private var expenses = mutableListOf<Triple<String, String, Double>>()
     private lateinit var expenseAdapter: ExpenseAdapter
-    private var selectedCurrency: Currency = Currency.getInstance("PLN")
     private var categories = mutableListOf<String>()
     private lateinit var auth: FirebaseAuth
 
@@ -52,11 +54,39 @@ class MainActivity : AppCompatActivity() {
         val settingsButton: Button = findViewById(R.id.settingsButton)
         val expenseRecyclerView: RecyclerView = findViewById(R.id.expenseRecyclerView)
 
-        val preferences = getSharedPreferences("Settings", MODE_PRIVATE)
-        budget = preferences.getFloat("Budget", 0.0f).toDouble()
-        budgetInPLN = preferences.getFloat("BudgetInPLN", 0.0f).toDouble()
-        val currencyCode = preferences.getString("CurrencyCode", "PLN") ?: "PLN"
-        selectedCurrency = Currency.getInstance(currencyCode)
+        if (exchangeRate != null) {
+            println(selectedCurrency)
+            println(currency?.currencyCode)
+            if (selectedCurrency != currency?.currencyCode) {
+                if (selectedCurrency == "PLN") {
+                    budget = budgetInPLN
+                    auth.currentUser?.uid?.let {
+                            budget?.let { it1 ->
+                                saveVariableToFirestore("mobi", "budgets",
+                                    it, it1
+                                )
+                            }
+                        }
+                } else {
+                    budget = budgetInPLN?.div(exchangeRate!!)
+                    auth.currentUser?.uid?.let {
+                            saveVariableToFirestore("mobi", "budgets",
+                                it, budget!!
+                            )
+                        }
+                }
+                currency = Currency.getInstance(selectedCurrency)
+                auth.currentUser?.uid?.let {
+                    selectedCurrency?.let { it1 ->
+                        saveVariableToFirestore("mobi", "currencyCode",
+                            it, it1
+                        )
+                    }
+                    }
+                updateRemaining(remainingTextView)
+                updateBudgetTextView(budgetTextView)
+            }
+        }
 
         auth.currentUser?.uid?.let { userId ->
             CoroutineScope(Dispatchers.IO).launch {
@@ -64,16 +94,12 @@ class MainActivity : AppCompatActivity() {
                 val budgetInPLNDeferred = readVariableFromFirestore("mobi", "budgetsInPLN", userId)
                 val currencyDeferred = readVariableFromFirestore("mobi", "currencyCode", userId)
 
-                val budget = budgetDeferred.await() as? Double ?: 0.0
-                val budgetInPLN = budgetInPLNDeferred.await() as? Double ?: 0.0
+                budget = budgetDeferred.await() as? Double ?: 0.0
+                budgetInPLN = budgetInPLNDeferred.await() as? Double ?: 0.0
                 val selectedCurrencyCode = currencyDeferred.await() as? String ?: "PLN"
-                val selectedCurrency = Currency.getInstance(selectedCurrencyCode)
+                currency = Currency.getInstance(selectedCurrencyCode)
 
                 withContext(Dispatchers.Main) {
-                    this@MainActivity.budget = budget
-                    this@MainActivity.budgetInPLN = budgetInPLN
-                    this@MainActivity.selectedCurrency = selectedCurrency
-
                     updateBudgetTextView(budgetTextView)
                     updateRemaining(remainingTextView)
                     updatePieChart(expensePieChart)
@@ -84,7 +110,7 @@ class MainActivity : AppCompatActivity() {
         loadCategories()
         loadExpensesFromFirestore(remainingTextView, expensePieChart)
 
-        expenseAdapter = ExpenseAdapter(expenses, selectedCurrency)
+        expenseAdapter = currency?.let { ExpenseAdapter(expenses, it) }!!
         expenseRecyclerView.layoutManager = LinearLayoutManager(this)
         expenseRecyclerView.adapter = expenseAdapter
 
@@ -92,34 +118,6 @@ class MainActivity : AppCompatActivity() {
         updateRemaining(remainingTextView)
 
         updatePieChart(expensePieChart)
-
-        intent.getStringExtra("SELECTED_CURRENCY")?.let { newCurrencyCode ->
-            intent.getDoubleExtra("EXCHANGE_RATE", 0.0).let {exchangeRate ->
-                if (newCurrencyCode != selectedCurrency.currencyCode) {
-                    if (newCurrencyCode == "PLN") {
-                        budget = budgetInPLN
-                        auth.currentUser?.uid?.let {
-                            saveVariableToFirestore("mobi", "budgets",
-                                it, budget)
-                        }
-                    } else {
-                        budget = budgetInPLN / exchangeRate
-                        auth.currentUser?.uid?.let {
-                            saveVariableToFirestore("mobi", "budgets",
-                                it, budget)
-                        }
-                    }
-                    selectedCurrency = Currency.getInstance(newCurrencyCode)
-                    auth.currentUser?.uid?.let {
-                        saveVariableToFirestore("mobi", "currencyCode",
-                            it, selectedCurrency.currencyCode)
-                    }
-                    preferences.edit().putString("CurrencyCode", selectedCurrency.currencyCode).apply()
-                    updateBudgetTextView(budgetTextView)
-                    updateRemaining(remainingTextView)
-                }
-            }
-        }
 
         addBudgetButton.setOnClickListener {
             val input = EditText(this).apply {
@@ -132,23 +130,23 @@ class MainActivity : AppCompatActivity() {
                 .setPositiveButton("OK") { _, _ ->
                     val newBudget = input.text.toString().toDoubleOrNull()
                     if (newBudget != null) {
-                        if (selectedCurrency.currencyCode == "PLN") {
+                        if (currency!!.currencyCode == "PLN") {
                             budgetInPLN = newBudget
                             auth.currentUser?.uid?.let { it1 ->
                                 saveVariableToFirestore("mobi", "budgetsInPLN",
-                                    it1, budgetInPLN)
+                                    it1, budgetInPLN!!
+                                )
                             }
-                            preferences.edit().putFloat("BudgetInPLN", budgetInPLN.toFloat()).apply()
                         }
                         budget = newBudget
-                        preferences.edit().putFloat("Budget", budget.toFloat()).apply()
                         auth.currentUser?.uid?.let { it1 ->
                             saveVariableToFirestore("mobi", "budgets",
-                                it1, budget)
+                                it1, budget!!
+                            )
                         }
                         auth.currentUser?.uid?.let { it1 ->
                             saveVariableToFirestore("mobi", "currencyCode",
-                                it1, selectedCurrency.currencyCode)
+                                it1, currency!!.currencyCode)
                         }
                         updateBudgetTextView(budgetTextView)
                         updateRemaining(remainingTextView)
@@ -224,20 +222,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateBudgetTextView(budgetTextView: TextView) {
-        budgetTextView.text = "Budget: $budget ${selectedCurrency.symbol}"
+        budgetTextView.text = "Budget: $budget ${currency?.symbol}"
     }
 
     private fun updateRemaining(remainingTextView: TextView) {
         val totalExpenses = expenses.sumOf { it.third }
-        val remaining = budget - totalExpenses
-        remainingTextView.text = "Remaining: $remaining ${selectedCurrency.symbol}"
+        val remaining = budget?.minus(totalExpenses)
+        remainingTextView.text = "Remaining: $remaining ${currency?.symbol}"
 
-        if (remaining < 0) {
-            AlertDialog.Builder(this)
-                .setTitle("Budget Exceeded")
-                .setMessage("You have exceeded your budget by ${-remaining} ${selectedCurrency.symbol}.")
-                .setPositiveButton("OK", null)
-                .show()
+        if (remaining != null) {
+            if (remaining < 0) {
+                AlertDialog.Builder(this)
+                    .setTitle("Budget Exceeded")
+                    .setMessage("You have exceeded your budget by ${-remaining} ${currency?.symbol}.")
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
         }
     }
 
@@ -291,7 +291,7 @@ class MainActivity : AppCompatActivity() {
             "name" to name,
             "category" to category,
             "amount" to amount,
-            "currency" to selectedCurrency.currencyCode
+            "currency" to (currency?.currencyCode ?: "PLN")
         )
         val firestore = FirebaseFirestore.getInstance()
         firestore.collection("mobi").document("expenses").collection(userId).add(expenseData)

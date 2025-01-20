@@ -36,23 +36,19 @@ class SettingsActivity : AppCompatActivity() {
                     if (selectedCurrencyCode != "PLN") {
                         val exchangeRate = CurrencyConverter.fetchExchangeRate(selectedCurrencyCode)
                         if (exchangeRate != null) {
+                            ExchangeRateStore.selectedCurrency = selectedCurrencyCode
+                            ExchangeRateStore.exchangeRate = exchangeRate.rate
                             Log.d(TAG, "Exchange rate fetched: ${exchangeRate.rate}")
-                            // Create intent to return to MainActivity
-                            val intent = Intent(this@SettingsActivity, MainActivity::class.java).apply {
-                                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
-                                putExtra("SELECTED_CURRENCY", selectedCurrencyCode)
-                                putExtra("EXCHANGE_RATE", exchangeRate.rate)
-                            }
+                            val intent = Intent(this@SettingsActivity, MainActivity::class.java)
 
                             Log.d(TAG, "Starting MainActivity with currency: $selectedCurrencyCode and exchangeRate ${exchangeRate.rate}")
                             startActivity(intent)
                             finish()
                         }
                     } else {
-                        val intent = Intent(this@SettingsActivity, MainActivity::class.java).apply {
-                            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
-                            putExtra("SELECTED_CURRENCY", selectedCurrencyCode)
-                        }
+                        ExchangeRateStore.exchangeRate = 1.0
+                        ExchangeRateStore.selectedCurrency = selectedCurrencyCode
+                        val intent = Intent(this@SettingsActivity, MainActivity::class.java)
 
                         Log.d(TAG, "Starting MainActivity with currency: $selectedCurrencyCode")
                         startActivity(intent)
