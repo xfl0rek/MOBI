@@ -110,7 +110,7 @@ class MainActivity : AppCompatActivity() {
         loadCategories()
         loadExpensesFromFirestore(remainingTextView, expensePieChart)
 
-        expenseAdapter = currency?.let { ExpenseAdapter(expenses, it) }!!
+        expenseAdapter = currency?.let { ExpenseAdapter(ExpensesStore.getAllExpenses(), it) }!!
         expenseRecyclerView.layoutManager = LinearLayoutManager(this)
         expenseRecyclerView.adapter = expenseAdapter
 
@@ -183,8 +183,9 @@ class MainActivity : AppCompatActivity() {
                     val amount = inputAmount.text.toString().toDoubleOrNull() ?: 0.0
                     val category = categorySpinner.selectedItem?.toString() ?: "Uncategorized"
                     if (name.isNotEmpty() && amount > 0) {
-                        expenses.add(Triple(name, category, amount))
                         saveExpenseToFirestore(name, category, amount)
+                        val expense = Expense(name, category, amount, currency!!.currencyCode)
+                        ExpensesStore.addExpense(expense)
                         expenseAdapter.notifyDataSetChanged()
                         updateRemaining(remainingTextView)
                         updatePieChart(expensePieChart)
@@ -308,12 +309,13 @@ class MainActivity : AppCompatActivity() {
         val firestore = FirebaseFirestore.getInstance()
         firestore.collection("mobi").document("expenses").collection(userId).get()
             .addOnSuccessListener { documents ->
-                expenses.clear()
+                ExpensesStore.clearExpenses()
                 for (document in documents) {
                     val name = document.getString("name") ?: ""
                     val category = document.getString("category") ?: "Uncategorized"
                     val amount = document.getDouble("amount") ?: 0.0
-                    expenses.add(Triple(name, category, amount))
+                    val expense = Expense(name, category, amount, currency!!.currencyCode)
+                    ExpensesStore.addExpense(expense)
                 }
                 expenseAdapter.notifyDataSetChanged()
                 updateRemaining(remainingTextView)
@@ -323,11 +325,10 @@ class MainActivity : AppCompatActivity() {
                 println("Error loading expenses: $e")
             }
     }
-
 }
 
 class ExpenseAdapter(
-    private val expenses: List<Triple<String, String, Double>>,
+    private val expenses: List<Expense>,
     private val currency: Currency
 ) : RecyclerView.Adapter<ExpenseAdapter.ExpenseViewHolder>() {
 
