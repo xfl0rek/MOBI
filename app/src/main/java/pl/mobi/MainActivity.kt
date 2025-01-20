@@ -18,14 +18,17 @@ import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
 import com.github.mikephil.charting.utils.ColorTemplate
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 
 class MainActivity : AppCompatActivity() {
-
-    private var budget: Double = 0.0
+    private var budget: Double = 0.0  // Current budget in selected currency
+    private var budgetInPLN: Double = 0.0
     private var expenses = mutableListOf<Triple<String, String, Double>>()
     private lateinit var expenseAdapter: ExpenseAdapter
-    private lateinit var selectedCurrency: Currency
+    private var selectedCurrency: Currency = Currency.getInstance("PLN")  // Default PLN
     private var categories = mutableListOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,10 +36,11 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         val expensePieChart: PieChart = findViewById(R.id.expensePieChart)
 
-        // Odczyt ustawień
+        // wczytywanie zmiennych - zmienic pozniej na firebase
         val preferences = getSharedPreferences("Settings", MODE_PRIVATE)
         budget = preferences.getFloat("Budget", 0.0f).toDouble()
-        val currencyCode = preferences.getString("CurrencyCode", "USD") ?: "USD"
+        budgetInPLN = preferences.getFloat("BudgetInPLN", 0.0f).toDouble()
+        val currencyCode = preferences.getString("CurrencyCode", "PLN") ?: "PLN"
         selectedCurrency = Currency.getInstance(currencyCode)
 
         // Powiązanie widoków
@@ -60,6 +64,27 @@ class MainActivity : AppCompatActivity() {
 
         updatePieChart(expensePieChart)
 
+        intent.getStringExtra("SELECTED_CURRENCY")?.let { newCurrencyCode ->
+            intent.getDoubleExtra("EXCHANGE_RATE", 0.0).let {exchangeRate ->
+                println(newCurrencyCode)
+                println(exchangeRate)
+                if (newCurrencyCode != selectedCurrency.currencyCode) {
+                    if (newCurrencyCode == "PLN") {
+                        budget = budgetInPLN
+                    } else {
+                        budget = budgetInPLN / exchangeRate
+                        println(budget)
+                        println(budgetInPLN)
+                        println(exchangeRate)
+                    }
+                    selectedCurrency = Currency.getInstance(newCurrencyCode)
+                    preferences.edit().putString("CurrencyCode", selectedCurrency.currencyCode).apply()
+                    updateBudgetTextView(budgetTextView)
+                    updateRemaining(remainingTextView)
+                }
+            }
+        }
+
         // Obsługa przycisku dodawania budżetu
         addBudgetButton.setOnClickListener {
             val input = EditText(this).apply {
@@ -72,6 +97,10 @@ class MainActivity : AppCompatActivity() {
                 .setPositiveButton("OK") { _, _ ->
                     val newBudget = input.text.toString().toDoubleOrNull()
                     if (newBudget != null) {
+                        if (selectedCurrency.currencyCode == "PLN") {
+                            budgetInPLN = newBudget
+                            preferences.edit().putFloat("BudgetInPLN", budgetInPLN.toFloat()).apply()
+                        }
                         budget = newBudget
                         preferences.edit().putFloat("Budget", budget.toFloat()).apply()
                         updateBudgetTextView(budgetTextView)

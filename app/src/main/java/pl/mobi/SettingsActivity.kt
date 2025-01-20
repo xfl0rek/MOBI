@@ -2,20 +2,18 @@ package pl.mobi
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.Spinner
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class SettingsActivity : AppCompatActivity() {
-
-    // Mapa stałych kursów walut
-    private val exchangeRates = mapOf(
-        "PLN" to 1.0,
-        "USD" to 0.25,
-        "EUR" to 0.22
-    )
+    private val TAG = "SettingsActivity"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,31 +29,45 @@ class SettingsActivity : AppCompatActivity() {
 
         saveButton.setOnClickListener {
             val selectedCurrencyCode = currencySpinner.selectedItem.toString()
-            val preferences = getSharedPreferences("Settings", MODE_PRIVATE)
-            val previousCurrencyCode = preferences.getString("CurrencyCode", "PLN") ?: "PLN"
+            Log.d(TAG, "Selected currency: $selectedCurrencyCode")
 
-            if (selectedCurrencyCode != previousCurrencyCode) {
-                val conversionRate = getConversionRate(previousCurrencyCode, selectedCurrencyCode)
+            CoroutineScope(Dispatchers.Main).launch {
+                try {
+                    if (selectedCurrencyCode != "PLN") {
+                        val exchangeRate = CurrencyConverter.fetchExchangeRate(selectedCurrencyCode)
+                        if (exchangeRate != null) {
+                            Log.d(TAG, "Exchange rate fetched: ${exchangeRate.rate}")
+                            // Create intent to return to MainActivity
+                            val intent = Intent(this@SettingsActivity, MainActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                                putExtra("SELECTED_CURRENCY", selectedCurrencyCode)
+                                putExtra("EXCHANGE_RATE", exchangeRate.rate)
+                            }
 
-                val budget = preferences.getFloat("Budget", 0.0f).toDouble()
-                val newBudget = budget * conversionRate
+                            Log.d(TAG, "Starting MainActivity with currency: $selectedCurrencyCode and exchangeRate ${exchangeRate.rate}")
+                            startActivity(intent)
+                            finish()
+                        }
+                    } else {
+                        val intent = Intent(this@SettingsActivity, MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                            putExtra("SELECTED_CURRENCY", selectedCurrencyCode)
+                        }
 
-                val editor = preferences.edit()
-                editor.putFloat("Budget", newBudget.toFloat())
-                editor.putString("CurrencyCode", selectedCurrencyCode)
-                editor.apply()
+                        Log.d(TAG, "Starting MainActivity with currency: $selectedCurrencyCode")
+                        startActivity(intent)
+                        finish()
+                    }
 
-                Toast.makeText(this@SettingsActivity, "Przewalutowano budżet na $selectedCurrencyCode", Toast.LENGTH_SHORT).show()
-                val intent = Intent(this@SettingsActivity, MainActivity::class.java)
-                startActivity(intent)
-                finish()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error during currency conversion: ${e.message}")
+                    Toast.makeText(
+                        this@SettingsActivity,
+                        "Error during currency conversion: ${e.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
-    }
-
-    private fun getConversionRate(fromCurrency: String, toCurrency: String): Double {
-        val fromRate = exchangeRates[fromCurrency] ?: 1.0
-        val toRate = exchangeRates[toCurrency] ?: 1.0
-        return toRate / fromRate
     }
 }
