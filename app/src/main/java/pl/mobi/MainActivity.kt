@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -55,8 +56,6 @@ class MainActivity : AppCompatActivity() {
         val expenseRecyclerView: RecyclerView = findViewById(R.id.expenseRecyclerView)
 
         if (exchangeRate != null) {
-            println(selectedCurrency)
-            println(currency?.currencyCode)
             if (selectedCurrency != currency?.currencyCode) {
                 if (selectedCurrency == "PLN") {
                     budget = budgetInPLN
@@ -103,16 +102,17 @@ class MainActivity : AppCompatActivity() {
                     updateBudgetTextView(budgetTextView)
                     updateRemaining(remainingTextView)
                     updatePieChart(expensePieChart)
+//                    expenseAdapter.notifyDataSetChanged()
                 }
             }
         }
 
-        loadCategories()
-        loadExpensesFromFirestore(remainingTextView, expensePieChart)
-
         expenseAdapter = currency?.let { ExpenseAdapter(ExpensesStore.getAllExpenses(), it) }!!
         expenseRecyclerView.layoutManager = LinearLayoutManager(this)
         expenseRecyclerView.adapter = expenseAdapter
+
+        loadCategories()
+        loadExpensesFromFirestore(remainingTextView, expensePieChart)
 
         updateBudgetTextView(budgetTextView)
         updateRemaining(remainingTextView)
@@ -183,9 +183,27 @@ class MainActivity : AppCompatActivity() {
                     val amount = inputAmount.text.toString().toDoubleOrNull() ?: 0.0
                     val category = categorySpinner.selectedItem?.toString() ?: "Uncategorized"
                     if (name.isNotEmpty() && amount > 0) {
-                        saveExpenseToFirestore(name, category, amount)
-                        val expense = Expense(name, category, amount, currency!!.currencyCode)
-                        ExpensesStore.addExpense(expense)
+                        if (currency!!.currencyCode == "PLN") {
+                            saveExpenseToFirestore(name, category, amount, amount)
+                            val expense = Expense(name, category, amount, amount, currency!!.currencyCode)
+                            ExpensesStore.addExpense(expense)
+                        } else {
+                            CoroutineScope(Dispatchers.Main).launch {
+                                try {
+                                    val exchangeRate = CurrencyConverter.fetchExchangeRate(currency!!.currencyCode)
+                                    val amountInPLN = amount * exchangeRate?.rate!!
+                                    val expense = Expense(name, category, amount, amountInPLN, currency!!.currencyCode)
+                                    saveExpenseToFirestore(name, category, amount, amountInPLN)
+                                    if (expense != null) {
+                                        ExpensesStore.addExpense(expense)
+                                    }
+                                } catch (e: Exception) {
+                                    println("Something went wrong during fetching exchange rate in expense")
+                                }
+                            }
+
+                        }
+
                         expenseAdapter.notifyDataSetChanged()
                         updateRemaining(remainingTextView)
                         updatePieChart(expensePieChart)
@@ -286,12 +304,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun saveExpenseToFirestore(name: String, category: String, amount: Double) {
+    private fun saveExpenseToFirestore(name: String, category: String, amount: Double, amountInPLN: Double) {
         val userId = auth.currentUser?.uid ?: return
         val expenseData = hashMapOf(
             "name" to name,
             "category" to category,
             "amount" to amount,
+            "amountInPLN" to amountInPLN,
             "currency" to (currency?.currencyCode ?: "PLN")
         )
         val firestore = FirebaseFirestore.getInstance()
@@ -314,7 +333,8 @@ class MainActivity : AppCompatActivity() {
                     val name = document.getString("name") ?: ""
                     val category = document.getString("category") ?: "Uncategorized"
                     val amount = document.getDouble("amount") ?: 0.0
-                    val expense = Expense(name, category, amount, currency!!.currencyCode)
+                    val amountInPLN = document.getDouble("amountInPLN") ?: 0.0
+                    val expense = Expense(name, category, amount, amountInPLN, currency!!.currencyCode)
                     ExpensesStore.addExpense(expense)
                 }
                 expenseAdapter.notifyDataSetChanged()
@@ -328,7 +348,7 @@ class MainActivity : AppCompatActivity() {
 }
 
 class ExpenseAdapter(
-    private val expenses: List<Expense>,
+    private val expenses: MutableList<Expense>,
     private val currency: Currency
 ) : RecyclerView.Adapter<ExpenseAdapter.ExpenseViewHolder>() {
 
