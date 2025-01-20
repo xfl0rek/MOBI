@@ -75,4 +75,5 @@ dependencies {
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
     implementation("org.json:json:20210307")
+    implementation("com.google.firebase:firebase-firestore:25.1.1")
 }
