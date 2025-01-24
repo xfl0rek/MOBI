@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -271,24 +270,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateBudgetTextView(budgetTextView: TextView) {
-        budgetTextView.text = "Budget: $budget ${currency?.symbol}"
+        val formattedBudget = String.format("%.2f", budget)
+        budgetTextView.text = "Budget: $formattedBudget ${currency?.symbol}"
     }
 
     private fun updateRemaining(remainingTextView: TextView) {
-        val totalExpenses = expenses.sumOf { it.third }
-        val remaining = budget?.minus(totalExpenses)
-        remainingTextView.text = "Remaining: $remaining ${currency?.symbol}"
+        val totalExpenses = ExpensesStore.getAllExpenses().sumOf { expense ->
+            if (expense.currency == "PLN") expense.amountInPLN else expense.amount
+        }
 
-        if (remaining != null) {
-            if (remaining < 0) {
-                AlertDialog.Builder(this)
-                    .setTitle("Budget Exceeded")
-                    .setMessage("You have exceeded your budget by ${-remaining} ${currency?.symbol}.")
-                    .setPositiveButton("OK", null)
-                    .show()
-            }
+        val remaining = budget?.minus(totalExpenses)
+        val formattedRemaining = String.format("%.2f", remaining)
+        remainingTextView.text = "Remaining: ${formattedRemaining ?: 0.0} ${currency?.symbol}"
+
+        if (remaining != null && remaining < 0) {
+            AlertDialog.Builder(this)
+                .setTitle("Budget Exceeded")
+                .setMessage("You have exceeded your budget by ${-remaining} ${currency?.symbol}.")
+                .setPositiveButton("OK", null)
+                .show()
         }
     }
+
 
     private fun loadCategories() {
         val file = getFileStreamPath("categories.txt")
@@ -428,9 +431,11 @@ class ExpenseAdapter(
     }
 
     override fun onBindViewHolder(holder: ExpenseViewHolder, position: Int) {
-        val (id, name, category, amount) = expenses[position]
+        val (id, name, category, amount, amountInPLN, currency) = expenses[position]
+        val cur = Currency.getInstance(currency)
+        val formattedAmount = String.format("%.2f", amount)
         holder.nameView.text = "$name ($category)"
-        holder.amountView.text = "${currency.symbol}$amount"
+        holder.amountView.text = "${cur.symbol}$formattedAmount"
     }
 
     override fun getItemCount(): Int = expenses.size
