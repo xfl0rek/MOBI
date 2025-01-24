@@ -1,6 +1,7 @@
 package pl.mobi
 
 data class Expense(
+    val id: String,
     val name: String,
     val category: String,
     val amount: Double,
@@ -23,6 +24,13 @@ object ExpensesStore {
 
     fun getAllExpenses(): MutableList<Expense> {
         return expenses
+    }
+
+    fun updateExpense(expense: Expense) {
+        val index = expenses.indexOfFirst { it.id == expense.id }
+        if (index != -1) {
+            expenses[index] = expense
+        }
     }
 
     fun getExpensesByCategory(category: String): List<Expense> {

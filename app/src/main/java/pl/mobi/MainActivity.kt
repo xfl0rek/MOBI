@@ -24,6 +24,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.tasks.await
@@ -59,6 +60,12 @@ class MainActivity : AppCompatActivity() {
             if (selectedCurrency != currency?.currencyCode) {
                 if (selectedCurrency == "PLN") {
                     budget = budgetInPLN
+                    ExpensesStore.getAllExpenses().replaceAll { expense ->
+                        updateExpenseInFirestore(expense.id, expense.name, expense.category,
+                            expense.amountInPLN, expense.amountInPLN, selectedCurrency!!
+                        )
+                        expense.copy(amount = expense.amountInPLN)
+                    }
                     auth.currentUser?.uid?.let {
                             budget?.let { it1 ->
                                 saveVariableToFirestore("mobi", "budgets",
@@ -68,6 +75,12 @@ class MainActivity : AppCompatActivity() {
                         }
                 } else {
                     budget = budgetInPLN?.div(exchangeRate!!)
+                    ExpensesStore.getAllExpenses().replaceAll { expense ->
+                        updateExpenseInFirestore(expense.id, expense.name, expense.category,
+                            expense.amountInPLN / exchangeRate!!, expense.amountInPLN,
+                            selectedCurrency!!)
+                        expense.copy(amount = expense.amountInPLN / exchangeRate!!)
+                    }
                     auth.currentUser?.uid?.let {
                             saveVariableToFirestore("mobi", "budgets",
                                 it, budget!!
@@ -84,8 +97,11 @@ class MainActivity : AppCompatActivity() {
                     }
                 updateRemaining(remainingTextView)
                 updateBudgetTextView(budgetTextView)
+//                expenseAdapter.notifyDataSetChanged()
             }
         }
+
+        println(ExpensesStore.getAllExpenses())
 
         auth.currentUser?.uid?.let { userId ->
             CoroutineScope(Dispatchers.IO).launch {
@@ -184,18 +200,32 @@ class MainActivity : AppCompatActivity() {
                     val category = categorySpinner.selectedItem?.toString() ?: "Uncategorized"
                     if (name.isNotEmpty() && amount > 0) {
                         if (currency!!.currencyCode == "PLN") {
-                            saveExpenseToFirestore(name, category, amount, amount)
-                            val expense = Expense(name, category, amount, amount, currency!!.currencyCode)
-                            ExpensesStore.addExpense(expense)
+                            saveExpenseToFirestore(name, category, amount, amount) {expenseId ->
+                                println(expenseId + "EXPENSE ID")
+                                if (expenseId != null) {
+                                    val expense = Expense(expenseId, name, category, amount, amount, currency!!.currencyCode)
+                                    ExpensesStore.addExpense(expense)
+
+                                    expenseAdapter.notifyDataSetChanged()
+                                    updateRemaining(remainingTextView)
+                                    updatePieChart(expensePieChart)
+                                }
+                            }
                         } else {
                             CoroutineScope(Dispatchers.Main).launch {
                                 try {
                                     val exchangeRate = CurrencyConverter.fetchExchangeRate(currency!!.currencyCode)
                                     val amountInPLN = amount * exchangeRate?.rate!!
-                                    val expense = Expense(name, category, amount, amountInPLN, currency!!.currencyCode)
-                                    saveExpenseToFirestore(name, category, amount, amountInPLN)
-                                    if (expense != null) {
-                                        ExpensesStore.addExpense(expense)
+                                    saveExpenseToFirestore(name, category, amount, amountInPLN) {expenseId ->
+                                        if (expenseId != null) {
+                                            val expense = Expense(expenseId, name, category, amount,
+                                                amountInPLN, currency!!.currencyCode)
+                                            ExpensesStore.addExpense(expense)
+
+                                            expenseAdapter.notifyDataSetChanged()
+                                            updateRemaining(remainingTextView)
+                                            updatePieChart(expensePieChart)
+                                        }
                                     }
                                 } catch (e: Exception) {
                                     println("Something went wrong during fetching exchange rate in expense")
@@ -304,7 +334,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun saveExpenseToFirestore(name: String, category: String, amount: Double, amountInPLN: Double) {
+    private fun saveExpenseToFirestore(
+        name: String,
+        category: String,
+        amount: Double,
+        amountInPLN: Double,
+        callback: (String?) -> Unit
+    ) {
         val userId = auth.currentUser?.uid ?: return
         val expenseData = hashMapOf(
             "name" to name,
@@ -315,13 +351,15 @@ class MainActivity : AppCompatActivity() {
         )
         val firestore = FirebaseFirestore.getInstance()
         firestore.collection("mobi").document("expenses").collection(userId).add(expenseData)
-            .addOnSuccessListener {
-                println("Expense saved")
+            .addOnSuccessListener { documentReference ->
+                callback(documentReference.id)
             }
             .addOnFailureListener { e ->
                 println("Error saving expense: $e")
+                callback(null)
             }
     }
+
 
     private fun loadExpensesFromFirestore(remainingTextView: TextView, expensePieChart: PieChart) {
         val userId = auth.currentUser?.uid ?: return
@@ -330,11 +368,14 @@ class MainActivity : AppCompatActivity() {
             .addOnSuccessListener { documents ->
                 ExpensesStore.clearExpenses()
                 for (document in documents) {
+                    val id = document.id
                     val name = document.getString("name") ?: ""
                     val category = document.getString("category") ?: "Uncategorized"
                     val amount = document.getDouble("amount") ?: 0.0
                     val amountInPLN = document.getDouble("amountInPLN") ?: 0.0
-                    val expense = Expense(name, category, amount, amountInPLN, currency!!.currencyCode)
+                    val currencyCode = document.getString("currency") ?: "PLN"
+
+                    val expense = Expense(id, name, category, amount, amountInPLN, currencyCode)
                     ExpensesStore.addExpense(expense)
                 }
                 expenseAdapter.notifyDataSetChanged()
@@ -345,6 +386,35 @@ class MainActivity : AppCompatActivity() {
                 println("Error loading expenses: $e")
             }
     }
+
+    private fun updateExpenseInFirestore(
+        expenseId: String,
+        name: String,
+        category: String,
+        amount: Double,
+        amountInPLN: Double,
+        currency: String
+    ) {
+        val userId = auth.currentUser?.uid ?: return
+        val firestore = FirebaseFirestore.getInstance()
+        val expenseData = mapOf(
+            "name" to name,
+            "category" to category,
+            "amount" to amount,
+            "amountInPLN" to amountInPLN,
+            "currency" to currency
+        )
+
+        firestore.collection("mobi").document("expenses").collection(userId).document(expenseId)
+            .set(expenseData, SetOptions.merge())
+            .addOnSuccessListener {
+                println("Expense with ID $expenseId successfully updated.")
+            }
+            .addOnFailureListener { e ->
+                println("Error updating expense: $e")
+            }
+    }
+
 }
 
 class ExpenseAdapter(
@@ -358,7 +428,7 @@ class ExpenseAdapter(
     }
 
     override fun onBindViewHolder(holder: ExpenseViewHolder, position: Int) {
-        val (name, category, amount) = expenses[position]
+        val (id, name, category, amount) = expenses[position]
         holder.nameView.text = "$name ($category)"
         holder.amountView.text = "${currency.symbol}$amount"
     }
