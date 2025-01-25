@@ -54,6 +54,18 @@ class MainActivity : AppCompatActivity() {
         val addExpenseButton: Button = findViewById(R.id.addExpenseButton)
         val settingsButton: Button = findViewById(R.id.settingsButton)
         val expenseRecyclerView: RecyclerView = findViewById(R.id.expenseRecyclerView)
+        val resetBudgetButton: Button = findViewById(R.id.resetBudgetButton)
+
+        resetBudgetButton.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Reset Budget")
+                .setMessage("Are you sure you want to reset your budget and all expenses?")
+                .setPositiveButton("Yes") { _, _ ->
+                    resetBudget(budgetTextView, remainingTextView, expensePieChart)
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
 
         if (exchangeRate != null) {
             if (selectedCurrency != currency?.currencyCode) {
@@ -417,6 +429,35 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
+    private fun resetBudget(budgetTextView: TextView, remainingTextView: TextView, expensePieChart: PieChart) {
+        budget = 0.0
+        budgetInPLN = 0.0
+
+        auth.currentUser?.uid?.let { userId ->
+            saveVariableToFirestore("mobi", "budgets", userId, budget!!)
+            saveVariableToFirestore("mobi", "budgetsInPLN", userId, budgetInPLN!!)
+        }
+
+        ExpensesStore.clearExpenses()
+        auth.currentUser?.uid?.let { userId ->
+            val firestore = FirebaseFirestore.getInstance()
+            firestore.collection("mobi").document("expenses").collection(userId).get()
+                .addOnSuccessListener { documents ->
+                    for (document in documents) {
+                        document.reference.delete()
+                    }
+                    updateRemaining(remainingTextView)
+                    updatePieChart(expensePieChart)
+                }
+                .addOnFailureListener { e ->
+                    println("Error resetting expenses: $e")
+                }
+        }
+
+        updateBudgetTextView(budgetTextView)
+        updateRemaining(remainingTextView)
+        updatePieChart(expensePieChart)
+    }
 }
 
 class ExpenseAdapter(
