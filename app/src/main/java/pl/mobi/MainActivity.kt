@@ -219,6 +219,7 @@ class MainActivity : AppCompatActivity() {
 
                                     updatePieChart(expensePieChart)
                                     updateRemaining(remainingTextView)
+                                    expenseAdapter.notifyDataSetChanged()
                                 }
                             }
                         } else {
@@ -233,6 +234,7 @@ class MainActivity : AppCompatActivity() {
 
                                             updatePieChart(expensePieChart)
                                             updateRemaining(remainingTextView)
+                                            expenseAdapter.notifyDataSetChanged()
                                         }
                                     }
                                 } catch (e: Exception) {
@@ -297,7 +299,7 @@ class MainActivity : AppCompatActivity() {
         if (remaining != null && remaining < 0) {
             AlertDialog.Builder(this)
                 .setTitle("Budget Exceeded")
-                .setMessage("You have exceeded your budget by ${-remaining} ${currency?.symbol}.")
+                .setMessage("You have exceeded your budget by ${"%.2f".format(-remaining)} ${currency?.symbol}.")
                 .setPositiveButton("OK", null)
                 .show()
         }
@@ -437,6 +439,9 @@ class MainActivity : AppCompatActivity() {
             saveVariableToFirestore("mobi", "budgets", userId, budget!!)
             saveVariableToFirestore("mobi", "budgetsInPLN", userId, budgetInPLN!!)
         }
+
+        ExpensesStore.clearExpenses()
+        expenseAdapter.notifyDataSetChanged()
 
         ExpensesStore.clearExpenses()
         auth.currentUser?.uid?.let { userId ->
