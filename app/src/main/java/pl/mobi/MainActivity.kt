@@ -199,15 +199,14 @@ class MainActivity : AppCompatActivity() {
                     val category = categorySpinner.selectedItem?.toString() ?: "Uncategorized"
                     if (name.isNotEmpty() && amount > 0) {
                         if (currency!!.currencyCode == "PLN") {
-                            saveExpenseToFirestore(name, category, amount, amount) {expenseId ->
-                                println(expenseId + "EXPENSE ID")
+                            saveExpenseToFirestore(name, category, amount, amount) { expenseId ->
+                                println(expenseId + " EXPENSE ID")
                                 if (expenseId != null) {
                                     val expense = Expense(expenseId, name, category, amount, amount, currency!!.currencyCode)
                                     ExpensesStore.addExpense(expense)
 
-                                    expenseAdapter.notifyDataSetChanged()
-                                    updateRemaining(remainingTextView)
                                     updatePieChart(expensePieChart)
+                                    updateRemaining(remainingTextView)
                                 }
                             }
                         } else {
@@ -215,27 +214,22 @@ class MainActivity : AppCompatActivity() {
                                 try {
                                     val exchangeRate = CurrencyConverter.fetchExchangeRate(currency!!.currencyCode)
                                     val amountInPLN = amount * exchangeRate?.rate!!
-                                    saveExpenseToFirestore(name, category, amount, amountInPLN) {expenseId ->
+                                    saveExpenseToFirestore(name, category, amount, amountInPLN) { expenseId ->
                                         if (expenseId != null) {
-                                            val expense = Expense(expenseId, name, category, amount,
-                                                amountInPLN, currency!!.currencyCode)
+                                            val expense = Expense(expenseId, name, category, amount, amountInPLN, currency!!.currencyCode)
                                             ExpensesStore.addExpense(expense)
 
-                                            expenseAdapter.notifyDataSetChanged()
-                                            updateRemaining(remainingTextView)
                                             updatePieChart(expensePieChart)
+                                            updateRemaining(remainingTextView)
                                         }
                                     }
                                 } catch (e: Exception) {
                                     println("Something went wrong during fetching exchange rate in expense")
                                 }
                             }
-
                         }
-
-                        expenseAdapter.notifyDataSetChanged()
-                        updateRemaining(remainingTextView)
                         updatePieChart(expensePieChart)
+                        updateRemaining(remainingTextView)
                     } else {
                         Toast.makeText(this, "Invalid expense data", Toast.LENGTH_SHORT).show()
                     }
@@ -244,6 +238,7 @@ class MainActivity : AppCompatActivity() {
                 .show()
         }
 
+
         settingsButton.setOnClickListener {
             val intent = Intent(this, SettingsActivity::class.java)
             startActivity(intent)
@@ -251,6 +246,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updatePieChart(pieChart: PieChart) {
+        expenses = ExpensesStore.getAllExpenses().map { expense ->
+            Triple(expense.name, expense.category, expense.amount)
+        }.toMutableList()
+
         val categorySums = expenses.groupBy { it.second }.mapValues { entry ->
             entry.value.sumOf { it.third }
         }
@@ -266,7 +265,7 @@ class MainActivity : AppCompatActivity() {
 
         pieChart.data = PieData(dataSet)
         pieChart.description.isEnabled = false
-        pieChart.invalidate() // Odśwież wykres
+        pieChart.invalidate()
     }
 
     private fun updateBudgetTextView(budgetTextView: TextView) {
