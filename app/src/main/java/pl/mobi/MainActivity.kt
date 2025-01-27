@@ -54,6 +54,18 @@ class MainActivity : AppCompatActivity() {
         val addExpenseButton: Button = findViewById(R.id.addExpenseButton)
         val settingsButton: Button = findViewById(R.id.settingsButton)
         val expenseRecyclerView: RecyclerView = findViewById(R.id.expenseRecyclerView)
+        val resetBudgetButton: Button = findViewById(R.id.resetBudgetButton)
+
+        resetBudgetButton.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Reset Budget")
+                .setMessage("Are you sure you want to reset your budget and all expenses?")
+                .setPositiveButton("Yes") { _, _ ->
+                    resetBudget(budgetTextView, remainingTextView, expensePieChart)
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
 
         if (exchangeRate != null) {
             if (selectedCurrency != currency?.currencyCode) {
@@ -199,15 +211,15 @@ class MainActivity : AppCompatActivity() {
                     val category = categorySpinner.selectedItem?.toString() ?: "Uncategorized"
                     if (name.isNotEmpty() && amount > 0) {
                         if (currency!!.currencyCode == "PLN") {
-                            saveExpenseToFirestore(name, category, amount, amount) {expenseId ->
-                                println(expenseId + "EXPENSE ID")
+                            saveExpenseToFirestore(name, category, amount, amount) { expenseId ->
+                                println(expenseId + " EXPENSE ID")
                                 if (expenseId != null) {
                                     val expense = Expense(expenseId, name, category, amount, amount, currency!!.currencyCode)
                                     ExpensesStore.addExpense(expense)
 
-                                    expenseAdapter.notifyDataSetChanged()
-                                    updateRemaining(remainingTextView)
                                     updatePieChart(expensePieChart)
+                                    updateRemaining(remainingTextView)
+                                    expenseAdapter.notifyDataSetChanged()
                                 }
                             }
                         } else {
@@ -215,27 +227,23 @@ class MainActivity : AppCompatActivity() {
                                 try {
                                     val exchangeRate = CurrencyConverter.fetchExchangeRate(currency!!.currencyCode)
                                     val amountInPLN = amount * exchangeRate?.rate!!
-                                    saveExpenseToFirestore(name, category, amount, amountInPLN) {expenseId ->
+                                    saveExpenseToFirestore(name, category, amount, amountInPLN) { expenseId ->
                                         if (expenseId != null) {
-                                            val expense = Expense(expenseId, name, category, amount,
-                                                amountInPLN, currency!!.currencyCode)
+                                            val expense = Expense(expenseId, name, category, amount, amountInPLN, currency!!.currencyCode)
                                             ExpensesStore.addExpense(expense)
 
-                                            expenseAdapter.notifyDataSetChanged()
-                                            updateRemaining(remainingTextView)
                                             updatePieChart(expensePieChart)
+                                            updateRemaining(remainingTextView)
+                                            expenseAdapter.notifyDataSetChanged()
                                         }
                                     }
                                 } catch (e: Exception) {
                                     println("Something went wrong during fetching exchange rate in expense")
                                 }
                             }
-
                         }
-
-                        expenseAdapter.notifyDataSetChanged()
-                        updateRemaining(remainingTextView)
                         updatePieChart(expensePieChart)
+                        updateRemaining(remainingTextView)
                     } else {
                         Toast.makeText(this, "Invalid expense data", Toast.LENGTH_SHORT).show()
                     }
@@ -244,6 +252,7 @@ class MainActivity : AppCompatActivity() {
                 .show()
         }
 
+
         settingsButton.setOnClickListener {
             val intent = Intent(this, SettingsActivity::class.java)
             startActivity(intent)
@@ -251,6 +260,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updatePieChart(pieChart: PieChart) {
+        expenses = ExpensesStore.getAllExpenses().map { expense ->
+            Triple(expense.name, expense.category, expense.amount)
+        }.toMutableList()
+
         val categorySums = expenses.groupBy { it.second }.mapValues { entry ->
             entry.value.sumOf { it.third }
         }
@@ -266,7 +279,7 @@ class MainActivity : AppCompatActivity() {
 
         pieChart.data = PieData(dataSet)
         pieChart.description.isEnabled = false
-        pieChart.invalidate() // Odśwież wykres
+        pieChart.invalidate()
     }
 
     private fun updateBudgetTextView(budgetTextView: TextView) {
@@ -286,7 +299,7 @@ class MainActivity : AppCompatActivity() {
         if (remaining != null && remaining < 0) {
             AlertDialog.Builder(this)
                 .setTitle("Budget Exceeded")
-                .setMessage("You have exceeded your budget by ${-remaining} ${currency?.symbol}.")
+                .setMessage("You have exceeded your budget by ${"%.2f".format(-remaining)} ${currency?.symbol}.")
                 .setPositiveButton("OK", null)
                 .show()
         }
@@ -418,6 +431,38 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
+    private fun resetBudget(budgetTextView: TextView, remainingTextView: TextView, expensePieChart: PieChart) {
+        budget = 0.0
+        budgetInPLN = 0.0
+
+        auth.currentUser?.uid?.let { userId ->
+            saveVariableToFirestore("mobi", "budgets", userId, budget!!)
+            saveVariableToFirestore("mobi", "budgetsInPLN", userId, budgetInPLN!!)
+        }
+
+        ExpensesStore.clearExpenses()
+        expenseAdapter.notifyDataSetChanged()
+
+        ExpensesStore.clearExpenses()
+        auth.currentUser?.uid?.let { userId ->
+            val firestore = FirebaseFirestore.getInstance()
+            firestore.collection("mobi").document("expenses").collection(userId).get()
+                .addOnSuccessListener { documents ->
+                    for (document in documents) {
+                        document.reference.delete()
+                    }
+                    updateRemaining(remainingTextView)
+                    updatePieChart(expensePieChart)
+                }
+                .addOnFailureListener { e ->
+                    println("Error resetting expenses: $e")
+                }
+        }
+
+        updateBudgetTextView(budgetTextView)
+        updateRemaining(remainingTextView)
+        updatePieChart(expensePieChart)
+    }
 }
 
 class ExpenseAdapter(
