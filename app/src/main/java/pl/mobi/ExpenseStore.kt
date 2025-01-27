@@ -16,25 +16,8 @@ object ExpensesStore {
         expenses.add(expense)
     }
 
-    fun removeExpense(index: Int) {
-        if (index in expenses.indices) {
-            expenses.removeAt(index)
-        }
-    }
-
     fun getAllExpenses(): MutableList<Expense> {
         return expenses
-    }
-
-    fun updateExpense(expense: Expense) {
-        val index = expenses.indexOfFirst { it.id == expense.id }
-        if (index != -1) {
-            expenses[index] = expense
-        }
-    }
-
-    fun getExpensesByCategory(category: String): List<Expense> {
-        return expenses.filter { it.category == category }
     }
 
     fun clearExpenses() {
