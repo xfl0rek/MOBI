@@ -1,6 +1,5 @@
 package pl.mobi
 
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
@@ -34,11 +33,10 @@ import pl.mobi.BudgetStore.currency
 import pl.mobi.ExchangeRateStore.exchangeRate
 import pl.mobi.ExchangeRateStore.selectedCurrency
 
-
 class MainActivity : AppCompatActivity() {
     private var expenses = mutableListOf<Triple<String, String, Double>>()
     private lateinit var expenseAdapter: ExpenseAdapter
-    private var categories = mutableListOf<String>()
+    private var categories = mutableListOf("Food", "Transport", "Entertainment", "Other")
     private lateinit var auth: FirebaseAuth
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -106,13 +104,9 @@ class MainActivity : AppCompatActivity() {
                         )
                     }
                     }
-                updateRemaining(remainingTextView)
                 updateBudgetTextView(budgetTextView)
-//                expenseAdapter.notifyDataSetChanged()
             }
         }
-
-        println(ExpensesStore.getAllExpenses())
 
         auth.currentUser?.uid?.let { userId ->
             CoroutineScope(Dispatchers.IO).launch {
@@ -129,7 +123,6 @@ class MainActivity : AppCompatActivity() {
                     updateBudgetTextView(budgetTextView)
                     updateRemaining(remainingTextView)
                     updatePieChart(expensePieChart)
-//                    expenseAdapter.notifyDataSetChanged()
                 }
             }
         }
@@ -138,11 +131,9 @@ class MainActivity : AppCompatActivity() {
         expenseRecyclerView.layoutManager = LinearLayoutManager(this)
         expenseRecyclerView.adapter = expenseAdapter
 
-        loadCategories()
         loadExpensesFromFirestore(remainingTextView, expensePieChart)
 
         updateBudgetTextView(budgetTextView)
-        updateRemaining(remainingTextView)
 
         updatePieChart(expensePieChart)
 
@@ -305,23 +296,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
-    private fun loadCategories() {
-        val file = getFileStreamPath("categories.txt")
-        if (!file.exists()) {
-            categories = mutableListOf("Food", "Transport", "Entertainment", "Other")
-            saveCategories()
-        } else {
-            categories = openFileInput("categories.txt").bufferedReader().readLines().toMutableList()
-        }
-    }
-
-    private fun saveCategories() {
-        openFileOutput("categories.txt", Context.MODE_PRIVATE).use { output ->
-            categories.forEach { output.write("$it\n".toByteArray()) }
-        }
-    }
-
     private fun saveVariableToFirestore(collection: String, document: String, key: String, value: Any) {
         val firestore = FirebaseFirestore.getInstance()
         val data = hashMapOf(key to value)
@@ -460,8 +434,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         updateBudgetTextView(budgetTextView)
-        updateRemaining(remainingTextView)
-        updatePieChart(expensePieChart)
     }
 }
 

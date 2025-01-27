@@ -21,7 +21,7 @@ class CurrencyConverter {
         suspend fun fetchExchangeRate(currencyCode: String): ExchangeRate? {
             return withContext(Dispatchers.IO) {
                 try {
-                    val url = URL("$BASE_URL/${currencyCode.lowercase()}/2025-01-26/?format=json")
+                    val url = URL("$BASE_URL/${currencyCode.lowercase()}/2025-01-23/?format=json")
                     val connection = url.openConnection() as HttpURLConnection
                     connection.requestMethod = "GET"
 
