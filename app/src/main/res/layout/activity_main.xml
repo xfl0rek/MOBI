@@ -3,21 +3,24 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="@color/backgroundColor">
 
     <TextView
         android:id="@+id/budgetTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Budget: 0.0"
-        android:textSize="18sp" />
+        android:textSize="18sp"
+        android:textColor="@color/primaryTextColor" />
 
     <TextView
         android:id="@+id/remainingTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Remaining: 0.0"
-        android:textSize="18sp" />
+        android:textSize="18sp"
+        android:textColor="@color/primaryTextColor" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -30,14 +33,18 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Set Budget" />
+            android:text="Set Budget"
+            android:backgroundTint="@color/buttonColor"
+            android:textColor="@color/buttonTextColor" />
 
         <Button
             android:id="@+id/addExpenseButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Add Expense" />
+            android:text="Add Expense"
+            android:backgroundTint="@color/buttonColor"
+            android:textColor="@color/buttonTextColor" />
     </LinearLayout>
 
     <Button
@@ -45,14 +52,18 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Settings"
-        android:layout_marginBottom="8dp" />
+        android:layout_marginBottom="8dp"
+        android:backgroundTint="@color/buttonColor"
+        android:textColor="@color/buttonTextColor" />
 
     <Button
         android:id="@+id/resetBudgetButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Reset Budget"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="16dp"
+        android:backgroundTint="@color/buttonColor"
+        android:textColor="@color/buttonTextColor" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/expenseRecyclerView"
@@ -66,5 +77,4 @@
         android:layout_width="match_parent"
         android:layout_height="300dp"
         android:layout_marginTop="16dp" />
-
 </LinearLayout>

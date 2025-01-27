@@ -1,5 +1,6 @@
 package pl.mobi
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
@@ -39,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     private var categories = mutableListOf("Food", "Transport", "Entertainment", "Other")
     private lateinit var auth: FirebaseAuth
 
+    @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -138,33 +140,25 @@ class MainActivity : AppCompatActivity() {
         updatePieChart(expensePieChart)
 
         addBudgetButton.setOnClickListener {
-            val input = EditText(this).apply {
-                inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
-                hint = "Enter your budget"
-            }
-            AlertDialog.Builder(this)
+            val dialogView = layoutInflater.inflate(R.layout.dialog_set_budget, null)
+            val input = dialogView.findViewById<EditText>(R.id.budgetInput)
+
+            val dialog = AlertDialog.Builder(this)
                 .setTitle("Set Budget")
-                .setView(input)
+                .setView(dialogView)
                 .setPositiveButton("OK") { _, _ ->
                     val newBudget = input.text.toString().toDoubleOrNull()
                     if (newBudget != null) {
                         if (currency!!.currencyCode == "PLN") {
                             budgetInPLN = newBudget
-                            auth.currentUser?.uid?.let { it1 ->
-                                saveVariableToFirestore("mobi", "budgetsInPLN",
-                                    it1, budgetInPLN!!
-                                )
+                            auth.currentUser?.uid?.let { uid ->
+                                saveVariableToFirestore("mobi", "budgetsInPLN", uid, budgetInPLN!!)
                             }
                         }
                         budget = newBudget
-                        auth.currentUser?.uid?.let { it1 ->
-                            saveVariableToFirestore("mobi", "budgets",
-                                it1, budget!!
-                            )
-                        }
-                        auth.currentUser?.uid?.let { it1 ->
-                            saveVariableToFirestore("mobi", "currencyCode",
-                                it1, currency!!.currencyCode)
+                        auth.currentUser?.uid?.let { uid ->
+                            saveVariableToFirestore("mobi", "budgets", uid, budget!!)
+                            saveVariableToFirestore("mobi", "currencyCode", uid, currency!!.currencyCode)
                         }
                         updateBudgetTextView(budgetTextView)
                         updateRemaining(remainingTextView)
@@ -173,29 +167,26 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 .setNegativeButton("Cancel", null)
-                .show()
+                .create()
+
+            dialog.show()
         }
 
         addExpenseButton.setOnClickListener {
-            val inputName = EditText(this).apply {
-                hint = "Expense name"
-            }
-            val inputAmount = EditText(this).apply {
-                inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
-                hint = "Expense amount"
-            }
-            val categorySpinner = Spinner(this).apply {
-                adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, categories)
-            }
-            val layout = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(inputName)
-                addView(inputAmount)
-                addView(categorySpinner)
-            }
-            AlertDialog.Builder(this)
+            val dialogView = layoutInflater.inflate(R.layout.dialog_add_expense, null)
+            val inputName = dialogView.findViewById<EditText>(R.id.expenseNameInput)
+            val inputAmount = dialogView.findViewById<EditText>(R.id.expenseAmountInput)
+            val categorySpinner = dialogView.findViewById<Spinner>(R.id.expenseCategorySpinner)
+            
+            categorySpinner.adapter = ArrayAdapter(
+                this,
+                android.R.layout.simple_spinner_dropdown_item,
+                categories
+            )
+
+            val dialog = AlertDialog.Builder(this)
                 .setTitle("Add Expense")
-                .setView(layout)
+                .setView(dialogView)
                 .setPositiveButton("OK") { _, _ ->
                     val name = inputName.text.toString()
                     val amount = inputAmount.text.toString().toDoubleOrNull() ?: 0.0
@@ -203,9 +194,10 @@ class MainActivity : AppCompatActivity() {
                     if (name.isNotEmpty() && amount > 0) {
                         if (currency!!.currencyCode == "PLN") {
                             saveExpenseToFirestore(name, category, amount, amount) { expenseId ->
-                                println(expenseId + " EXPENSE ID")
                                 if (expenseId != null) {
-                                    val expense = Expense(expenseId, name, category, amount, amount, currency!!.currencyCode)
+                                    val expense = Expense(
+                                        expenseId, name, category, amount, amount, currency!!.currencyCode
+                                    )
                                     ExpensesStore.addExpense(expense)
 
                                     updatePieChart(expensePieChart)
@@ -217,10 +209,12 @@ class MainActivity : AppCompatActivity() {
                             CoroutineScope(Dispatchers.Main).launch {
                                 try {
                                     val exchangeRate = CurrencyConverter.fetchExchangeRate(currency!!.currencyCode)
-                                    val amountInPLN = amount * exchangeRate?.rate!!
+                                    val amountInPLN = amount * (exchangeRate?.rate ?: 1.0)
                                     saveExpenseToFirestore(name, category, amount, amountInPLN) { expenseId ->
                                         if (expenseId != null) {
-                                            val expense = Expense(expenseId, name, category, amount, amountInPLN, currency!!.currencyCode)
+                                            val expense = Expense(
+                                                expenseId, name, category, amount, amountInPLN, currency!!.currencyCode
+                                            )
                                             ExpensesStore.addExpense(expense)
 
                                             updatePieChart(expensePieChart)
@@ -229,7 +223,7 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                 } catch (e: Exception) {
-                                    println("Something went wrong during fetching exchange rate in expense")
+                                    println("Error fetching exchange rate: $e")
                                 }
                             }
                         }
@@ -240,8 +234,11 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 .setNegativeButton("Cancel", null)
-                .show()
+                .create()
+
+            dialog.show()
         }
+
 
 
         settingsButton.setOnClickListener {

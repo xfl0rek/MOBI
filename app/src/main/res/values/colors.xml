@@ -9,7 +9,21 @@
     <color name="white">#FFFFFFFF</color>
     <color name="primaryColor">#3F51B5</color>
     <color name="accentColor">#FF4081</color>
-    <color name="backgroundColor">#F5F5F5</color>
     <color name="textColorPrimary">#212121</color>
     <color name="textColorSecondary">#757575</color>
+    <color name="backgroundColor">#F0F4FF</color>
+    <color name="primaryTextColor">#1A237E</color>
+    <color name="secondaryTextColor">#5C6BC0</color>
+
+    <color name="buttonColor">#3949AB</color>
+    <color name="buttonTextColor">#FFFFFF</color>
+
+    <color name="dividerColor">#C5CAE9</color>
+    <color name="background_color">#F5F5F5</color>
+    <color name="primary_text_color">#212121</color>
+    <color name="button_color">#1976D2</color>
+
+    <color name="colorPrimary">#1976D2</color>
+    <color name="colorPrimaryDark">#0D47A1</color>
+    <color name="colorAccent">#FFC107</color>
 </resources>
