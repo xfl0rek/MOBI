@@ -177,7 +177,7 @@ class MainActivity : AppCompatActivity() {
             val inputName = dialogView.findViewById<EditText>(R.id.expenseNameInput)
             val inputAmount = dialogView.findViewById<EditText>(R.id.expenseAmountInput)
             val categorySpinner = dialogView.findViewById<Spinner>(R.id.expenseCategorySpinner)
-            
+
             categorySpinner.adapter = ArrayAdapter(
                 this,
                 android.R.layout.simple_spinner_dropdown_item,
